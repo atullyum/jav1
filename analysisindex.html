@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oceanographic Wave Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #1a1f2e;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Video Background Styling */
+        #video-background {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -2;
+            object-fit: cover;
+        }
+
+        /* Overlay to lighten video for readability */
+        .video-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.4);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1; /* Ensure content is on top */
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(12px);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #000000, #333333);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #444;
+            font-size: 1.1rem;
+        }
+
+        .input-section {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            color: #1a1f2e;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .input-group input {
+            background: rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            padding: 12px;
+            color: #1a1f2e;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .input-group input::placeholder {
+            color: rgba(0, 0, 0, 0.6);
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #000000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .analyze-btn, .explain-btn {
+            background: linear-gradient(135deg, #1a1f2e, #3a4155);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .analyze-btn:hover, .explain-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .result-card {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+        }
+
+        .result-card h3 {
+            color: #1a1f2e;
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #444;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            color: #1a1f2e;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-excellent { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .status-good { background: rgba(0, 0, 0, 0.05); color: #1a1f2e; }
+        .status-moderate { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .status-poor { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 25px;
+        }
+
+        .chart-container {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+            height: 400px;
+        }
+
+        .chart-container h3 {
+            color: #1a1f2e;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .wave-visualization {
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+        }
+
+        .wave-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .explanation-section {
+            background: rgba(0, 0, 0, 0.08);
+            padding: 30px;
+            border-radius: 16px;
+            margin: 30px 0;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(12px);
+            display: none;
+        }
+
+        .explanation-section h2 {
+            color: #1a1f2e;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .explanation-content {
+            color: #444;
+            line-height: 1.6;
+        }
+
+        .explanation-content h3 {
+            color: #333;
+            margin: 15px 0 10px;
+        }
+
+        .explanation-content p {
+            margin-bottom: 15px;
+        }
+
+        .explanation-content ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .explanation-content li {
+            margin-bottom: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; }
+        }
+
+        .pulsing {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Video -->
+    <video autoplay muted loop id="video-background">
+        <source src="ocean.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <div class="video-overlay"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>Oceanographic Wave Analysis</h1>
+            <p>Advanced algorithms for marine intelligence and optimization</p>
+        </div>
+
+        <div class="input-section">
+            <div class="input-grid">
+                <div class="input-group">
+                    <label for="waveDirection">Wave Direction (°)</label>
+                    <input type="number" id="waveDirection" min="0" max="360" value="225" step="1" placeholder="e.g., 225">
+                </div>
+                <div class="input-group">
+                    <label for="swellSpeed">Swell Speed (m/s)</label>
+                    <input type="number" id="swellSpeed" min="0" max="30" value="8.5" step="0.1" placeholder="e.g., 8.5">
+                </div>
+                <div class="input-group">
+                    <label for="currentSpeed">Current Speed (m/s)</label>
+                    <input type="number" id="currentSpeed" min="0" max="10" value="1.2" step="0.1" placeholder="e.g., 1.2">
+                </div>
+                <div class="input-group">
+                    <label for="currentDirection">Current Direction (°)</label>
+                    <input type="number" id="currentDirection" min="0" max="360" value="180" step="1" placeholder="e.g., 180">
+                </div>
+            </div>
+            <button class="analyze-btn" onclick="analyzeWaveData()">Analyze Ocean Conditions</button>
+            <button class="explain-btn" onclick="toggleExplanation()">How This Works</button>
+        </div>
+
+        <div class="explanation-section" id="explanationSection">
+            <h2>How the Oceanographic Analysis Works</h2>
+            <div class="explanation-content">
+                <p>This dashboard uses advanced oceanographic algorithms to analyze wave-current interactions and predict marine conditions. Here's how it works:</p>
+                
+                <h3>Wave-Current Interaction</h3>
+                <p>The system calculates how waves and currents interact based on their relative directions. When waves and currents move in the same direction, waves become longer and faster. When they oppose each other, waves become steeper and shorter.</p>
+                
+                <h3>Key Calculations</h3>
+                <ul>
+                    <li><strong>Interaction Coefficient:</strong> Measures how aligned waves and currents are (1 = same direction, -1 = opposite directions)</li>
+                    <li><strong>Effective Wave Speed:</strong> Calculates wave speed adjusted for current influence</li>
+                    <li><strong>Breaking Potential:</strong> Estimates likelihood of waves breaking based on steepness</li>
+                    <li><strong>Energy Flux:</strong> Measures the energy transported by waves (in kW/m)</li>
+                    <li><strong>Rip Current Risk:</strong> Assesses danger of rip currents forming</li>
+                </ul>
+                
+                <h3>Practical Applications</h3>
+                <ul>
+                    <li><strong>Navigation Efficiency:</strong> How easily vessels can navigate given conditions</li>
+                    <li><strong>Surf Quality:</strong> How good conditions are for surfing</li>
+                    <li><strong>Fishing Potential:</strong> How likely fish are to be active based on water mixing</li>
+                    <li><strong>Sediment Transport:</strong> How much sand/movement is happening on the seafloor</li>
+                </ul>
+                
+                <h3>Wave Visualization</h3>
+                <p>The animation at the bottom shows a simplified representation of wave patterns based on your inputs. The white wave represents primary swell, while the gray wave shows secondary swell patterns. The animation speed correlates with wave speed - faster waves move more quickly across the screen.</p>
+                
+                <p>These calculations use established oceanographic principles but are simplified for educational purposes. Always consult official marine forecasts for safety-critical decisions.</p>
+            </div>
+        </div>
+
+        <div class="results-grid" id="resultsGrid">
+            <!-- Results will be populated here -->
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-container">
+                <h3>Wave-Current Interaction Analysis</h3>
+                <canvas id="interactionChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Energy Potential Distribution</h3>
+                <canvas id="energyChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Directional Wave Spectrum</h3>
+                <canvas id="spectrumChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Temporal Wave Forecast</h3>
+                <canvas id="forecastChart"></canvas>
+            </div>
+        </div>
+
+        <div class="wave-visualization">
+            <canvas class="wave-canvas" id="waveCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let interactionChart, energyChart, spectrumChart, forecastChart;
+        const fontColor = '#1a1f2e';
+        const gridColor = 'rgba(0, 0, 0, 0.1)';
+        const borderColor = '#666666';
+
+        function analyzeWaveData() {
+            const waveDir = parseFloat(document.getElementById('waveDirection').value);
+            const swellSpeed = parseFloat(document.getElementById('swellSpeed').value);
+            const currentSpeed = parseFloat(document.getElementById('currentSpeed').value);
+            const currentDir = parseFloat(document.getElementById('currentDirection').value);
+
+            // Complex oceanographic calculations
+            const results = calculateOceanographicMetrics(waveDir, swellSpeed, currentSpeed, currentDir);
+            
+            displayResults(results);
+            updateCharts(results);
+            animateWaves(waveDir, swellSpeed);
+        }
+
+        function toggleExplanation() {
+            const explanationSection = document.getElementById('explanationSection');
+            explanationSection.style.display = explanationSection.style.display === 'none' || 
+                                              explanationSection.style.display === '' ? 'block' : 'none';
+        }
+
+        function calculateOceanographicMetrics(waveDir, swellSpeed, currentSpeed, currentDir) {
+            // Wave-current interaction coefficient
+            const directionDiff = Math.abs(waveDir - currentDir);
+            const normalizedDiff = Math.min(directionDiff, 360 - directionDiff);
+            const interactionCoeff = Math.cos(normalizedDiff * Math.PI / 180);
+            
+            // Effective wave speed considering current
+            const effectiveWaveSpeed = swellSpeed + (currentSpeed * interactionCoeff);
+            
+            // Wave steepness and breaking potential
+            const waveSteepness = swellSpeed / (9.81 * Math.pow(swellSpeed / 1.56, 2));
+            const breakingPotential = Math.min(waveSteepness * 100, 100);
+            
+            // Energy flux calculation
+            const waveEnergy = 0.5 * 1025 * 9.81 * Math.pow(swellSpeed / 1.56, 2);
+            const energyFlux = waveEnergy * effectiveWaveSpeed;
+            
+            // Rip current formation risk
+            const ripCurrentRisk = calculateRipCurrentRisk(waveDir, swellSpeed, currentSpeed, currentDir);
+            
+            // Sediment transport rate
+            const sedimentTransport = calculateSedimentTransport(swellSpeed, currentSpeed, interactionCoeff);
+            
+            // Navigation efficiency
+            const navEfficiency = calculateNavigationEfficiency(waveDir, swellSpeed, currentSpeed, currentDir);
+            
+            // Surf quality index
+            const surfQuality = calculateSurfQuality(swellSpeed, waveDir, currentSpeed, currentDir);
+            
+            // Fishing potential based on thermocline disruption
+            const fishingPotential = calculateFishingPotential(swellSpeed, currentSpeed, interactionCoeff);
+
+            return {
+                interactionCoeff,
+                effectiveWaveSpeed,
+                breakingPotential,
+                energyFlux,
+                ripCurrentRisk,
+                sedimentTransport,
+                navEfficiency,
+                surfQuality,
+                fishingPotential,
+                waveEnergy,
+                waveSteepness
+            };
+        }
+
+        function calculateRipCurrentRisk(waveDir, swellSpeed, currentSpeed, currentDir) {
+            const shoreAngle = Math.abs(Math.sin((waveDir - 90) * Math.PI / 180));
+            const currentAlignment = Math.abs(Math.cos((currentDir - 270) * Math.PI / 180));
+            return Math.min((shoreAngle * swellSpeed * currentAlignment * currentSpeed * 10), 100);
+        }
+
+        function calculateSedimentTransport(swellSpeed, currentSpeed, interactionCoeff) {
+            const waveOrbitalVelocity = swellSpeed * 0.314;
+            const shearStress = 1025 * Math.pow(waveOrbitalVelocity + currentSpeed * Math.abs(interactionCoeff), 2) * 0.001;
+            return shearStress * 1000; // kg/m²/s
+        }
+
+        function calculateNavigationEfficiency(waveDir, swellSpeed, currentSpeed, currentDir) {
+            const headingOptimal = 45; // Optimal heading relative to waves
+            const waveResistance = Math.pow(swellSpeed, 2) * Math.abs(Math.cos((waveDir - headingOptimal) * Math.PI / 180));
+            const currentAssist = currentSpeed * Math.cos((currentDir - headingOptimal) * Math.PI / 180);
+            return Math.max(0, Math.min(100, 100 - (waveResistance * 5) + (currentAssist * 20)));
+        }
+
+        function calculateSurfQuality(swellSpeed, waveDir, currentSpeed, currentDir) {
+            const optimalSpeed = 8; // m/s
+            const speedScore = 100 - Math.abs(swellSpeed - optimalSpeed) * 10;
+            const offshoreWind = Math.cos((currentDir - waveDir + 180) * Math.PI / 180);
+            const windScore = Math.max(0, offshoreWind * 50);
+            return Math.max(0, Math.min(100, speedScore + windScore));
+        }
+
+        function calculateFishingPotential(swellSpeed, currentSpeed, interactionCoeff) {
+            const turbulence = swellSpeed * currentSpeed * Math.abs(interactionCoeff);
+            const oxygenMixing = Math.min(turbulence * 10, 100);
+            const thermoclineDisruption = Math.min(turbulence * 15, 100);
+            return (oxygenMixing + thermoclineDisruption) / 2;
+        }
+
+        function displayResults(results) {
+            const resultsGrid = document.getElementById('resultsGrid');
+            
+            resultsGrid.innerHTML = `
+                <div class="result-card">
+                    <h3>Wave-Current Dynamics</h3>
+                    <div class="metric">
+                        <span class="metric-label">Interaction Coefficient</span>
+                        <span class="metric-value">${results.interactionCoeff.toFixed(3)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Effective Wave Speed</span>
+                        <span class="metric-value">${results.effectiveWaveSpeed.toFixed(2)} m/s</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Breaking Potential</span>
+                        <span class="status-indicator ${getStatusClass(results.breakingPotential)}">${results.breakingPotential.toFixed(1)}%</span>
+                    </div>
+                </div>
+
+                <div class="result-card">
+                    <h3>Energy & Transport</h3>
+                    <div class="metric">
+                        <span class="metric-label">Wave Energy Flux</span>
+                        <span class="metric-value">${(results.energyFlux / 1000).toFixed(1)} kW/m</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Sediment Transport</span>
+                        <span class="metric-value">${results.sedimentTransport.toFixed(2)} kg/m²/s</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Rip Current Risk</span>
+                        <span class="status-indicator ${getStatusClass(100 - results.ripCurrentRisk)}">${results.ripCurrentRisk.toFixed(1)}%</span>
+                    </div>
+                </div>
+
+                <div class="result-card">
+                    <h3>Navigation & Activities</h3>
+                    <div class="metric">
+                        <span class="metric-label">Navigation Efficiency</span>
+                        <span class="status-indicator ${getStatusClass(results.navEfficiency)}">${results.navEfficiency.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Surf Quality Index</span>
+                        <span class="status-indicator ${getStatusClass(results.surfQuality)}">${results.surfQuality.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Fishing Potential</span>
+                        <span class="status-indicator ${getStatusClass(results.fishingPotential)}">${results.fishingPotential.toFixed(1)}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getStatusClass(value) {
+            if (value >= 80) return 'status-excellent';
+            if (value >= 60) return 'status-good';
+            if (value >= 40) return 'status-moderate';
+            return 'status-poor';
+        }
+
+        function updateCharts(results) {
+            updateInteractionChart(results);
+            updateEnergyChart(results);
+            updateSpectrumChart(results);
+            updateForecastChart(results);
+        }
+
+        function updateInteractionChart(results) {
+            const ctx = document.getElementById('interactionChart').getContext('2d');
+            
+            if (interactionChart) {
+                interactionChart.destroy();
+            }
+
+            const angles = [];
+            const interactions = [];
+            for (let i = 0; i <= 360; i += 10) {
+                angles.push(i);
+                const diff = Math.abs(i - 180);
+                const normalizedDiff = Math.min(diff, 360 - diff);
+                interactions.push(Math.cos(normalizedDiff * Math.PI / 180));
+            }
+
+            interactionChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: angles,
+                    datasets: [{
+                        label: 'Interaction Coefficient',
+                        data: interactions,
+                        borderColor: borderColor,
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: fontColor }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Relative Angle (°)', color: fontColor },
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        },
+                        y: {
+                            title: { display: true, text: 'Coefficient', color: fontColor },
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateEnergyChart(results) {
+            const ctx = document.getElementById('energyChart').getContext('2d');
+            
+            if (energyChart) {
+                energyChart.destroy();
+            }
+
+            energyChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Kinetic Energy', 'Potential Energy', 'Dissipated Energy'],
+                    datasets: [{
+                        data: [
+                            results.energyFlux * 0.6,
+                            results.energyFlux * 0.3,
+                            results.energyFlux * 0.1
+                        ],
+                        backgroundColor: [
+                            '#1a1f2e',
+                            '#3a4155',
+                            '#6b7280'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: fontColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateSpectrumChart(results) {
+            const ctx = document.getElementById('spectrumChart').getContext('2d');
+            
+            if (spectrumChart) {
+                spectrumChart.destroy();
+            }
+
+            const frequencies = [];
+            const spectrum = [];
+            for (let f = 0.05; f <= 0.5; f += 0.01) {
+                frequencies.push(f.toFixed(2));
+                const energy = Math.exp(-Math.pow((f - 0.15) / 0.05, 2)) * results.waveEnergy / 1000;
+                spectrum.push(energy);
+            }
+
+            spectrumChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: frequencies,
+                    datasets: [{
+                        label: 'Energy Density',
+                        data: spectrum,
+                        borderColor: borderColor,
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: fontColor }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Frequency (Hz)', color: fontColor },
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        },
+                        y: {
+                            title: { display: true, text: 'Energy (kJ/m²)', color: fontColor },
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateForecastChart(results) {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+            
+            if (forecastChart) {
+                forecastChart.destroy();
+            }
+
+            const hours = [];
+            const waveHeights = [];
+            const energyLevels = [];
+            
+            for (let h = 0; h < 24; h++) {
+                hours.push(`${h}:00`);
+                const variation = Math.sin(h * Math.PI / 12) * 0.3 + Math.random() * 0.2;
+                waveHeights.push(results.effectiveWaveSpeed / 1.56 + variation);
+                energyLevels.push(results.energyFlux / 1000 + variation * 10);
+            }
+
+            forecastChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Wave Height (m)',
+                        data: waveHeights,
+                        borderColor: borderColor,
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Energy Flux (kW/m)',
+                        data: energyLevels,
+                        borderColor: '#999999',
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: fontColor }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            ticks: { color: fontColor },
+                            grid: { color: gridColor }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            ticks: { color: fontColor },
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function animateWaves(waveDir, swellSpeed) {
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            let time = 0;
+            
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Adjust animation speed based on wave speed
+                const speedFactor = Math.min(swellSpeed / 5, 2); // Cap at 2x speed
+                const amplitude = swellSpeed * 3;
+                const frequency = 0.02;
+                const speed = swellSpeed * 0.1 * speedFactor;
+                
+                // Primary wave (#1a1f2e)
+                ctx.strokeStyle = '#1a1f2e';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = canvas.height / 2 + Math.sin(x * frequency + time * speed) * amplitude;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                
+                ctx.stroke();
+                
+                // Secondary wave (#6b7280)
+                ctx.strokeStyle = '#6b7280';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                
+                for (let x = 0; x < canvas.width; x++) {
+                    const y = canvas.height / 2 + Math.sin(x * frequency * 1.5 + time * speed * 0.8) * amplitude * 0.6;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                
+                ctx.stroke();
+                
+                time++;
+                requestAnimationFrame(draw);
+            }
+            
+            draw();
+        }
+
+        // Initialize with default values
+        window.onload = function() {
+            analyzeWaveData();
+        };
+    </script>
+</body>
+</html>
