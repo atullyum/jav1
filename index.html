@@ -286,6 +286,32 @@
         .pulsing {
             animation: pulse 2s infinite;
         }
+
+        /* Home Button Styling */
+        .home-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .home-button:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -295,6 +321,9 @@
         Your browser does not support the video tag.
     </video>
     <div class="video-overlay"></div>
+
+    <!-- Home Button -->
+    <a href="https://tanishhhq-codes.github.io/SIH_Hack/" class="home-button" target="_blank">Home</a>
 
     <div class="container">
         <div class="header">
